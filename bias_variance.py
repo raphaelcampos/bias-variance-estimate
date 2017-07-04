@@ -14,11 +14,11 @@ def rssCV(estimator, X, y, num_classifications, train_size, gamma):
     
     if 0 >= train_size or train_size >= X.shape[0]:
         raise ValueError("Expected 0 < train_size < %d, given %d" % 
-        																				(X.shape[0], train_size))
+                                                (X.shape[0], train_size))
 
     if train_size/(X.shape[0] + 1.01) >= gamma or gamma >= 1.:
         raise ValueError("Expected %f <= gamma < 1, given %f" % 
-        											(train_size/(X.shape[0] + 1), gamma))
+                              (train_size/(X.shape[0] + 1), gamma))
     
     train_size = int(train_size)
     
@@ -61,38 +61,38 @@ def rssCV(estimator, X, y, num_classifications, train_size, gamma):
     return P
 
 def bootstrap(estimator, X, y, M = 50, n_folds = 5):
-	n_samples, n_features = X.shape
+  n_samples, n_features = X.shape
 
-	classes = np.unique(y)
-	n_classes = classes.shape[0]
+  classes = np.unique(y)
+  n_classes = classes.shape[0]
 
-	indices = np.arange(n_samples)
+  indices = np.arange(n_samples)
 
-	times = np.zeros((n_samples))
-	P = np.zeros((n_samples, n_classes))
-	for m in range(int(M)):
-		index = np.random.choice(indices,
-							 size=n_samples, replace=True)
-		
-		sampling_freq = np.bincount(index)
-		times[:sampling_freq.shape[0]] += sampling_freq 
+  times = np.zeros((n_samples))
+  P = np.zeros((n_samples, n_classes))
+  for m in range(int(M)):
+    index = np.random.choice(indices,
+               size=n_samples, replace=True)
+    
+    sampling_freq = np.bincount(index)
+    times[:sampling_freq.shape[0]] += sampling_freq 
 
-		kf = KFold(n_splits=n_folds, 
-					shuffle=True, random_state = None)
-		 
-		for train_index, test_index in kf.split(index, y[index]):
-			X_train, y_train = X[index[train_index]], y[index[train_index]]
-			X_test, y_test = X[index[test_index]], y[index[test_index]]
+    kf = KFold(n_splits=n_folds, 
+          shuffle=True, random_state = None)
+     
+    for train_index, test_index in kf.split(index, y[index]):
+      X_train, y_train = X[index[train_index]], y[index[train_index]]
+      X_test, y_test = X[index[test_index]], y[index[test_index]]
 
-			y_proba = estimator.\
-								fit(X_train, y_train).\
-								predict_proba(X_test)
+      y_proba = estimator.\
+                fit(X_train, y_train).\
+                predict_proba(X_test)
 
-			for i, j in enumerate(index[test_index]):
-				P[j, :] += y_proba[i]
+      for i, j in enumerate(index[test_index]):
+        P[j, :] += y_proba[i]
 
 
-	return P / times[:, np.newaxis]
+  return P / times[:, np.newaxis]
 
 def compute_statistics(P, X, y):
     classes = np.unique(y)
@@ -102,19 +102,19 @@ def compute_statistics(P, X, y):
 
     # estimate bayes error
     knn = KNeighborsClassifier(n_neighbors = 3, metric='cosine',
-    				 algorithm="brute", weights="uniform", n_jobs = -1)
+             algorithm="brute", weights="uniform", n_jobs = -1)
     tfidf = TfidfTransformer(norm="max", sublinear_tf=False)
     
     knn = make_pipeline(StandardScaler(), knn).fit(X, y)
     
     P_target = np.zeros((X.shape[0], n_classes))
     kf = KFold(n_splits=10, 
-    			shuffle=True, random_state = None)
+          shuffle=True, random_state = None)
     y_pred = np.zeros((X.shape[0]))
     for train_index, test_index in kf.split(X, y):
       P_target[test_index] = knn.predict_proba(X[test_index])
       # neighbors = knn.kneighbors(n_neighbors = 3,
-      # 														return_distance=False)
+      #                             return_distance=False)
 
       # y_pred, _ = mode(y[neighbors])
 
@@ -137,111 +137,111 @@ def compute_statistics(P, X, y):
  
     # SE = (1 - acc) - Var_target - VE
     return {"BIAS": bias_classifier * 100,
-    				"VAR": Var_classifier * 100,
-    				"SE": SE * 100, 
-    				"VE": VE * 100,
-    				"BE": Var_target * 100}
+            "VAR": Var_classifier * 100,
+            "SE": SE * 100, 
+            "VE": VE * 100,
+            "BE": Var_target * 100}
     
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.datasets import load_breast_cancer
 import pandas as pd
 def exp_james():
-	"""
-	Trying to reproduce James's paper experiments
-	[ref] James, G. M. (2003). Variance and bias for general loss functions.
-	 			Mach. Learn., 51(2):115--135.
-	"""
-	def load_dset(data, delimiter=","):
-		"""
-		helper for loading the datasets
-		"""
-		D = np.loadtxt(data, delimiter=delimiter)
+  """
+  Trying to reproduce James's paper experiments
+  [ref] James, G. M. (2003). Variance and bias for general loss functions.
+         Mach. Learn., 51(2):115--135.
+  """
+  def load_dset(data, delimiter=","):
+    """
+    helper for loading the datasets
+    """
+    D = np.loadtxt(data, delimiter=delimiter)
 
-		X, y = D[:, :-1], D[:,-1]
+    X, y = D[:, :-1], D[:,-1]
 
-		enc = LabelEncoder()
-		y = enc.fit_transform(y)
+    enc = LabelEncoder()
+    y = enc.fit_transform(y)
 
-		return X, y
+    return X, y
 
-	def run(clfs, X, y):
-		"""
-		runs the experiments given the dataset and the classifiers
-		"""
-		results = {}
-		for clf in clfs:
-			label, estimator, params = clf
-			for param, values in params.items():
-				for value in values:
-					estimator.set_params(**{param: value})
-					train_size = np.floor(X.shape[0] * 0.5)
-					P = rssCV(estimator, X, y, 50, train_size, 0.6)
-					stat = compute_statistics(P, X, y.astype(int))
-					results[label + str(value)] = stat
-		
-		df = pd.DataFrame(data=results)
-		print(df.loc[["BIAS","VAR","SE", "VE", "BE"]])
+  def run(clfs, X, y):
+    """
+    runs the experiments given the dataset and the classifiers
+    """
+    results = {}
+    for clf in clfs:
+      label, estimator, params = clf
+      for param, values in params.items():
+        for value in values:
+          estimator.set_params(**{param: value})
+          train_size = np.floor(X.shape[0] * 0.5)
+          P = rssCV(estimator, X, y, 50, train_size, 0.6)
+          stat = compute_statistics(P, X, y.astype(int))
+          results[label + str(value)] = stat
+    
+    df = pd.DataFrame(data=results)
+    print(df.loc[["BIAS","VAR","SE", "VE", "BE"]])
 
 
 
-	dt = DecisionTreeClassifier(max_leaf_nodes = 5)
-	knn = KNeighborsClassifier(n_neighbors = 1, metric='euclidean',
-    				 algorithm="kd_tree", weights="uniform", n_jobs = -1)
-	
-	knn = make_pipeline(StandardScaler(), knn)
+  dt = DecisionTreeClassifier(max_leaf_nodes = 5)
+  knn = KNeighborsClassifier(n_neighbors = 1, metric='euclidean',
+             algorithm="kd_tree", weights="uniform", n_jobs = -1)
+  
+  knn = make_pipeline(StandardScaler(), knn)
 
-	clfs = [
-		("dt", dt, {'max_leaf_nodes': [5, 10]}),
-		("knn", knn, {'kneighborsclassifier__n_neighbors': [1, 5, 11]}),
-		]
+  clfs = [
+    ("dt", dt, {'max_leaf_nodes': [5, 10]}),
+    ("knn", knn, {'kneighborsclassifier__n_neighbors': [1, 5, 11]}),
+    ]
 
-	datas = [
-		load_dset("datasets/glass.data.txt"),
-		load_breast_cancer(True),
-		load_dset("datasets/vowel-context.data.txt", " "),
-		load_dset("datasets/dermatology.data.txt", ","),
-		]
+  datas = [
+    load_dset("datasets/glass.data.txt"),
+    load_breast_cancer(True),
+    load_dset("datasets/vowel-context.data.txt", " "),
+    load_dset("datasets/dermatology.data.txt", ","),
+    ]
 
-	for data in datas:
-		X, y = data
-		print("----------------------\n\n")
-		run(clfs, X, y)
-		print("----------------------\n\n")
+  for data in datas:
+    X, y = data
+    print("-----------------------\n\n")
+    run(clfs, X, y)
+    print("-----------------------\n\n")
 
 
 if __name__ == '__main__':
-	exp_james()
-	exit()
-	from sklearn.datasets import load_svmlight_file
-	from sklearn.tree import DecisionTreeClassifier
+  exp_james()
+  exit()
+  from sklearn.datasets import load_svmlight_file
+  from sklearn.tree import DecisionTreeClassifier
 
-	from IPython import embed
+  from IPython import embed
 
-	dt = DecisionTreeClassifier(max_leaf_nodes = 5)
-	knn = KNeighborsClassifier(n_neighbors = 1, metric='euclidean',
-    				 algorithm="kd_treee", weights="uniform", n_jobs = -1)
-
-
-	from sklearn.ensemble import BaggingClassifier, RandomForestClassifier
-
-	X, y = load_svmlight_file("../release/datasets/4uni.svm")
-
-	D = np.loadtxt("../release/datasets/glass.data.txt", delimiter=",")
-	X, y = D[:, 1:-1], D[:,-1] - 1
-
-	from sklearn.preprocessing import LabelEncoder
-	enc = LabelEncoder()
-	y = enc.fit_transform(y)
-
-	train_size = np.floor(X.shape[0] * 0.5)
-	print(train_size / (X.shape[0] + 1), train_size)
-	P = rssCV(dt, X, y, 10, train_size, 0.6)
+  dt = DecisionTreeClassifier(max_leaf_nodes = 5)
+  knn = KNeighborsClassifier(n_neighbors = 1, metric='euclidean',
+             algorithm="kd_treee", weights="uniform", n_jobs = -1)
 
 
-	compute_statistics(P, X, y.astype(int))
-	P_classifier = P / np.sum(P, axis = 1)[:,np.newaxis]
-	SC = np.argmax(P_classifier, axis=1)
-	print(SC == y).mean()
-	
-	embed()
+  from sklearn.ensemble import BaggingClassifier, RandomForestClassifier
+
+  X, y = load_svmlight_file("../release/datasets/4uni.svm")
+
+  D = np.loadtxt("../release/datasets/glass.data.txt", delimiter=",")
+  X, y = D[:, 1:-1], D[:,-1] - 1
+
+  from sklearn.preprocessing import LabelEncoder
+  enc = LabelEncoder()
+  y = enc.fit_transform(y)
+
+  train_size = np.floor(X.shape[0] * 0.5)
+  print(train_size / (X.shape[0] + 1), train_size)
+  P = rssCV(dt, X, y, 10, train_size, 0.6)
+
+
+  compute_statistics(P, X, y.astype(int))
+  P_classifier = P / np.sum(P, axis = 1)[:,np.newaxis]
+  SC = np.argmax(P_classifier, axis=1)
+  print(SC == y).mean()
+  
+  embed()
